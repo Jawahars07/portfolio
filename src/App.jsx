@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'framer-motion'
+import { motion, useScroll, useTransform, useInView, useMotionValue, useSpring, AnimatePresence } from 'framer-motion'
 import {
   Github, Linkedin, Mail, MapPin, ArrowUpRight, ArrowRight,
   Sparkles, Cpu, Home, Leaf, LayoutGrid, ChevronRight,
@@ -132,6 +132,73 @@ function Reveal({ children, className, delay = 0, as = 'div' }) {
   )
 }
 
+/* iOS-26 liquid-glass card: 3D tilt toward the cursor + a light glare that
+   follows the pointer across the surface. Wrap any .glass element with it. */
+function LiquidCard({ children, className = '', tilt = true, ...rest }) {
+  const ref = useRef(null)
+  const mx = useMotionValue(0)
+  const my = useMotionValue(0)
+  const rotateY = useSpring(mx, { stiffness: 180, damping: 18 })
+  const rotateX = useSpring(my, { stiffness: 180, damping: 18 })
+
+  const onMove = (e) => {
+    const el = ref.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const px = (e.clientX - r.left) / r.width
+    const py = (e.clientY - r.top) / r.height
+    el.style.setProperty('--mx', `${px * 100}%`)
+    el.style.setProperty('--my', `${py * 100}%`)
+    el.style.setProperty('--glare', '1')
+    if (tilt) {
+      mx.set((px - 0.5) * 8)
+      my.set(-(py - 0.5) * 8)
+    }
+  }
+  const onLeave = () => {
+    const el = ref.current
+    if (el) el.style.setProperty('--glare', '0')
+    mx.set(0)
+    my.set(0)
+  }
+
+  return (
+    <motion.div
+      ref={ref}
+      className={className}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+      style={{ rotateX, rotateY, transformPerspective: 1100, height: '100%' }}
+      whileHover={{ scale: 1.012 }}
+      transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      {...rest}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
+/* magnetic wrapper — pulls a control gently toward the cursor */
+function Magnetic({ children, strength = 0.4 }) {
+  const ref = useRef(null)
+  const x = useSpring(useMotionValue(0), { stiffness: 250, damping: 16 })
+  const y = useSpring(useMotionValue(0), { stiffness: 250, damping: 16 })
+  const onMove = (e) => {
+    const el = ref.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    x.set((e.clientX - (r.left + r.width / 2)) * strength)
+    y.set((e.clientY - (r.top + r.height / 2)) * strength)
+  }
+  const reset = () => { x.set(0); y.set(0) }
+  return (
+    <motion.span ref={ref} onMouseMove={onMove} onMouseLeave={reset}
+      style={{ x, y, display: 'inline-flex' }}>
+      {children}
+    </motion.span>
+  )
+}
+
 /* count-up number used in hero stats */
 function CountUp({ to, suffix = '' }) {
   const ref = useRef(null)
@@ -235,8 +302,8 @@ function Hero() {
             </AnimatePresence>
           </motion.div>
           <motion.div className="hero-cta" variants={fadeUp}>
-            <a href="#work" className="btn btn-primary">View Work <ArrowRight size={16} /></a>
-            <a href={LINKS.github} target="_blank" rel="noreferrer" className="btn btn-ghost"><Github size={16} /> GitHub</a>
+            <Magnetic><a href="#work" className="btn btn-primary">View Work <ArrowRight size={16} /></a></Magnetic>
+            <Magnetic><a href={LINKS.github} target="_blank" rel="noreferrer" className="btn btn-ghost"><Github size={16} /> GitHub</a></Magnetic>
           </motion.div>
           <motion.div className="hero-stats" variants={fadeUp}>
             {STATS.map((s) => (
@@ -267,13 +334,14 @@ function About() {
         <motion.div className="acts" variants={container} initial="hidden"
           whileInView="show" viewport={{ once: true, amount: 0.2 }}>
           {ACTS.map((a) => (
-            <motion.div key={a.rom} className="glass act" variants={fadeUp}
-              whileHover={{ y: -6 }} transition={{ type: 'spring', stiffness: 260, damping: 22 }}>
-              <div className="act-rom">{a.rom}</div>
-              <div className="act-period">{a.period}</div>
-              <div className="act-title">{a.title}</div>
-              <div className="act-inst">{a.inst}</div>
-              <p className="act-desc">{a.desc}</p>
+            <motion.div key={a.rom} className="lg-item" variants={fadeUp}>
+              <LiquidCard className="glass act">
+                <div className="act-rom">{a.rom}</div>
+                <div className="act-period">{a.period}</div>
+                <div className="act-title">{a.title}</div>
+                <div className="act-inst">{a.inst}</div>
+                <p className="act-desc">{a.desc}</p>
+              </LiquidCard>
             </motion.div>
           ))}
         </motion.div>
@@ -337,7 +405,8 @@ function Work() {
 
         <div className="work-grid">
           {/* FLAGSHIP — WebForge */}
-          <Reveal className="glass proj flagship">
+          <Reveal className="lg-item">
+            <LiquidCard className="glass proj flagship" tilt={false}>
             <div>
               <div className="proj-flag-tag"><Sparkles size={14} className="star" /> Flagship · AI Engineering</div>
               <h3 className="proj-name">WebForge</h3>
@@ -357,6 +426,7 @@ function Work() {
               </div>
             </div>
             <PipelineVisual />
+            </LiquidCard>
           </Reveal>
 
           {/* SECONDARY GRID */}
@@ -365,24 +435,25 @@ function Work() {
             {SECONDARY.map((p) => {
               const Icon = p.icon
               return (
-                <motion.div key={p.name} className="glass proj" variants={fadeUp}
-                  whileHover={{ y: -6 }} transition={{ type: 'spring', stiffness: 260, damping: 22 }}>
-                  <div className="proj-sm-icon"><Icon size={20} /></div>
-                  <h3 className="proj-sm-name">{p.name}</h3>
-                  <div className="proj-sm-cat">{p.cat}</div>
-                  <p className="proj-sm-desc">{p.desc}</p>
-                  <div className="proj-pills">
-                    {p.pills.map((x) => <span key={x} className="pill">{x}</span>)}
-                  </div>
-                  {p.links.length > 0 && (
-                    <div className="proj-links">
-                      {p.links.map((l) => (
-                        <a key={l.href} href={l.href} target="_blank" rel="noreferrer" className="proj-link">
-                          {l.label} <ArrowUpRight size={13} />
-                        </a>
-                      ))}
+                <motion.div key={p.name} className="lg-item" variants={fadeUp}>
+                  <LiquidCard className="glass proj">
+                    <div className="proj-sm-icon"><Icon size={20} /></div>
+                    <h3 className="proj-sm-name">{p.name}</h3>
+                    <div className="proj-sm-cat">{p.cat}</div>
+                    <p className="proj-sm-desc">{p.desc}</p>
+                    <div className="proj-pills">
+                      {p.pills.map((x) => <span key={x} className="pill">{x}</span>)}
                     </div>
-                  )}
+                    {p.links.length > 0 && (
+                      <div className="proj-links">
+                        {p.links.map((l) => (
+                          <a key={l.href} href={l.href} target="_blank" rel="noreferrer" className="proj-link">
+                            {l.label} <ArrowUpRight size={13} />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </LiquidCard>
                 </motion.div>
               )
             })}
@@ -404,16 +475,18 @@ function Cases() {
         <motion.div className="case-list" variants={container} initial="hidden"
           whileInView="show" viewport={{ once: true, amount: 0.1 }}>
           {CASES.map((c) => (
-            <motion.div key={c.num} className="glass case" variants={fadeUp}>
-              <div className="case-num">{c.num}</div>
-              <div>
-                <div className="case-cat">{c.cat}</div>
-                <h3 className="case-title">{c.title}</h3>
-                <p className="case-desc">{c.desc}</p>
-              </div>
-              <div className="case-tags">
-                {c.tags.map((t) => <span key={t} className="pill">{t}</span>)}
-              </div>
+            <motion.div key={c.num} variants={fadeUp}>
+              <LiquidCard className="glass case" tilt={false}>
+                <div className="case-num">{c.num}</div>
+                <div>
+                  <div className="case-cat">{c.cat}</div>
+                  <h3 className="case-title">{c.title}</h3>
+                  <p className="case-desc">{c.desc}</p>
+                </div>
+                <div className="case-tags">
+                  {c.tags.map((t) => <span key={t} className="pill">{t}</span>)}
+                </div>
+              </LiquidCard>
             </motion.div>
           ))}
         </motion.div>
@@ -498,7 +571,8 @@ function Contact() {
   return (
     <section id="contact">
       <div className="wrap">
-        <Reveal className="glass contact-card">
+        <Reveal className="lg-item">
+          <LiquidCard className="glass contact-card" tilt={false}>
           <h2 className="contact-h">Let's build something <em>worth building</em>.</h2>
           <p className="contact-sub">
             Apprenticeship enquiries, Rta Living collaboration, or a conversation about something worth doing — I'm ready to engage seriously.
@@ -550,6 +624,7 @@ function Contact() {
               )}
             </form>
           </div>
+          </LiquidCard>
         </Reveal>
       </div>
     </section>
