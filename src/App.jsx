@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, useScroll, useTransform, useInView, useMotionValue, useSpring, AnimatePresence } from 'framer-motion'
 import {
   Github, Linkedin, Mail, MapPin, ArrowUpRight, ArrowRight,
-  Sparkles, Cpu, Home, Leaf, LayoutGrid, ChevronRight,
+  Sparkles, Cpu, Home, Leaf, LayoutGrid, ChevronRight, Mic,
+  Compass, Building2, Megaphone, Feather, Zap, TrendingUp, Package,
+  Sun, Moon, Cloud, CloudRain, Snowflake,
 } from 'lucide-react'
 
 /* ════════════════════════════ DATA (sourced from wiki) ════════════════ */
@@ -53,6 +55,12 @@ const SECONDARY = [
     links: [{ label: 'rtaliving.com', href: LINKS.rta }, { label: 'Repo', href: LINKS.rtaRepo }],
   },
   {
+    icon: Mic, name: 'Tara', cat: 'Always-On Voice AI · Private',
+    desc: 'An always-on voice assistant living on my Mac. Local Whisper ears, a Claude brain with cost-aware model routing, and a neural Indian-English voice. Private by design — it runs on my machine, not the cloud.',
+    pills: ['Whisper', 'Claude API', 'Edge-TTS', 'Python'],
+    links: [],
+  },
+  {
     icon: Leaf, name: 'Fertilizer Prediction AI', cat: 'ML · Python',
     desc: 'A machine-learning model that recommends optimal fertilizer from soil and crop conditions — data pipeline, training and evaluation. Published and documented on GitHub.',
     pills: ['Python', 'ML', 'scikit-learn'],
@@ -87,6 +95,17 @@ const CASES = [
   },
 ]
 
+const MIND = [
+  { icon: Cpu, name: 'AI', line: 'Right model for the job. Cache what repeats. Ship the pipeline, not the demo.' },
+  { icon: Compass, name: 'Strategy', line: 'Moats, pricing power, and where the market is actually going — not where the deck says.' },
+  { icon: Package, name: 'Product', line: 'Useful, beautiful, commercially sharp. In that order, all three required.' },
+  { icon: TrendingUp, name: 'Finance', line: 'Every idea survives or dies in the unit economics. I build the model first.' },
+  { icon: Building2, name: 'Real Estate', line: 'I grew up around property and construction. Land, capital, and timing are in my blood.' },
+  { icon: Megaphone, name: 'Marketing', line: 'Distribution is half the product. The best build loses to the best story told well.' },
+  { icon: Feather, name: 'Story', line: 'People decide on narrative and justify with numbers. I write for the decision.' },
+  { icon: Zap, name: 'Execution', line: 'A shipped imperfect thing beats a perfect plan. Iterate in public.' },
+]
+
 const SKILLS_ENG = [
   { name: 'AI Product & LLM Orchestration', tag: 'Anthropic API · multi-model · caching', w: 88 },
   { name: 'Full-Stack Development', tag: 'React · Next.js · TypeScript · PHP', w: 86 },
@@ -102,6 +121,142 @@ const SKILLS_BIZ = [
   { name: 'Project & Operations', tag: 'Agile · stakeholder mgmt', w: 90 },
   { name: 'E-Commerce Analytics', tag: 'SEO · conversion · KPIs', w: 83 },
 ]
+
+/* ════════════════════════════ MOOD ENGINE ═════════════════════════════
+   Time of day + live weather (Open-Meteo, keyless) drive the atmosphere:
+   aurora hues, glass tint, glow, and weather layers (rain / snow / stars /
+   sun rays). Location is IP-approximate via geojs.io — no permission
+   popup — with Paris as the graceful fallback. The brand accent stays
+   constant; only the environment adapts. */
+
+const wmoToKind = (code) => {
+  if (code === 0 || code === 1) return 'clear'
+  if (code <= 3 || code === 45 || code === 48) return 'cloud'
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95) return 'rain'
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow'
+  return 'clear'
+}
+
+const hourToTime = (h) =>
+  h >= 6 && h < 12 ? 'morning' : h >= 12 && h < 17 ? 'day' : h >= 17 && h < 21 ? 'evening' : 'night'
+
+function useMood() {
+  const [mood, setMood] = useState({
+    time: hourToTime(new Date().getHours()),
+    weather: 'clear',
+    live: false, // true once real weather data has loaded
+  })
+
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchWeather = async (lat, lon) => {
+      try {
+        const r = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weather_code`,
+          { signal: AbortSignal.timeout(6000) }
+        )
+        const d = await r.json()
+        if (!cancelled && d?.current?.weather_code !== undefined) {
+          setMood((m) => ({ ...m, weather: wmoToKind(d.current.weather_code), live: true }))
+        }
+      } catch { /* keep the time-based mood — site stays alive without weather */ }
+    }
+
+    ;(async () => {
+      let lat = 48.86, lon = 2.35 // Paris fallback
+      try {
+        const r = await fetch('https://get.geojs.io/v1/ip/geo.json', { signal: AbortSignal.timeout(4000) })
+        const g = await r.json()
+        if (g?.latitude && g?.longitude) { lat = +g.latitude; lon = +g.longitude }
+      } catch { /* fall back to Paris */ }
+      fetchWeather(lat, lon)
+    })()
+
+    const tick = setInterval(
+      () => setMood((m) => ({ ...m, time: hourToTime(new Date().getHours()) })),
+      60_000
+    )
+    return () => { cancelled = true; clearInterval(tick) }
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.dataset.time = mood.time
+    document.documentElement.dataset.weather = mood.weather
+  }, [mood])
+
+  return mood
+}
+
+const MOOD_META = {
+  morning: { greet: 'Good morning', Icon: Sun },
+  day: { greet: 'Good afternoon', Icon: Sun },
+  evening: { greet: 'Good evening', Icon: Moon },
+  night: { greet: 'Good evening', Icon: Moon },
+}
+const WEATHER_META = {
+  clear: { label: 'clear skies', Icon: Sun },
+  cloud: { label: 'soft clouds', Icon: Cloud },
+  rain: { label: 'rain on the glass', Icon: CloudRain },
+  snow: { label: 'snow falling', Icon: Snowflake },
+}
+
+/* Weather + night layers — pure CSS animations, low particle counts,
+   pointer-events none, removed entirely under prefers-reduced-motion. */
+function Atmosphere({ mood }) {
+  const rain = useMemo(
+    () => Array.from({ length: 56 }, (_, i) => ({
+      left: (i * 137.5) % 100,
+      delay: ((i * 73) % 40) / 10,
+      dur: 0.8 + ((i * 31) % 14) / 10,
+      op: 0.12 + ((i * 17) % 20) / 100,
+    })), []
+  )
+  const snow = useMemo(
+    () => Array.from({ length: 36 }, (_, i) => ({
+      left: (i * 61.8) % 100,
+      delay: ((i * 97) % 80) / 10,
+      dur: 6 + ((i * 43) % 50) / 10,
+      size: 2 + ((i * 13) % 3),
+    })), []
+  )
+  const stars = useMemo(
+    () => Array.from({ length: 70 }, (_, i) => ({
+      left: (i * 137.5) % 100,
+      top: (i * 83) % 62,
+      delay: ((i * 29) % 60) / 10,
+      size: i % 9 === 0 ? 2.4 : 1.4,
+    })), []
+  )
+
+  const night = mood.time === 'night' || mood.time === 'evening'
+  return (
+    <div className="atmosphere" aria-hidden>
+      {night && mood.weather !== 'cloud' && (
+        <div className="stars">
+          {stars.map((s, i) => (
+            <span key={i} style={{ left: `${s.left}%`, top: `${s.top}%`, width: s.size, height: s.size, animationDelay: `${s.delay}s` }} />
+          ))}
+        </div>
+      )}
+      {mood.weather === 'rain' && (
+        <div className="rain">
+          {rain.map((d, i) => (
+            <span key={i} style={{ left: `${d.left}%`, animationDelay: `${d.delay}s`, animationDuration: `${d.dur}s`, opacity: d.op }} />
+          ))}
+        </div>
+      )}
+      {mood.weather === 'snow' && (
+        <div className="snow">
+          {snow.map((f, i) => (
+            <span key={i} style={{ left: `${f.left}%`, width: f.size, height: f.size, animationDelay: `${f.delay}s`, animationDuration: `${f.dur}s` }} />
+          ))}
+        </div>
+      )}
+      {mood.weather === 'clear' && !night && <div className="sunrays" />}
+    </div>
+  )
+}
 
 /* ════════════════════════════ MOTION VARIANTS ═════════════════════════ */
 
@@ -221,7 +376,14 @@ function CountUp({ to, suffix = '' }) {
   return <span ref={ref}>{val}<span className="accent">{suffix}</span></span>
 }
 
-/* ════════════════════════════ SECTIONS ════════════════════════════════ */
+/* chapter kicker — the film-style section marker */
+function Chapter({ n, title }) {
+  return (
+    <div className="sec-kicker"><span className="dot" /> Chapter {n} — {title}</div>
+  )
+}
+
+/* ════════════════════════════ CHROME ══════════════════════════════════ */
 
 function Aurora() {
   return (
@@ -231,6 +393,35 @@ function Aurora() {
       </div>
       <div className="grain" aria-hidden />
     </>
+  )
+}
+
+function ScrollProgress() {
+  const { scrollYProgress } = useScroll()
+  const scaleX = useSpring(scrollYProgress, { stiffness: 120, damping: 26, mass: 0.4 })
+  return <motion.div className="scroll-progress" style={{ scaleX }} aria-hidden />
+}
+
+/* film-title opening — a brief curtain before the world appears */
+function Curtain() {
+  const [done, setDone] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setDone(true), 1500)
+    return () => clearTimeout(t)
+  }, [])
+  return (
+    <AnimatePresence>
+      {!done && (
+        <motion.div className="curtain" exit={{ opacity: 0, transition: { duration: 0.7, ease: 'easeInOut' } }}>
+          <motion.span
+            initial={{ opacity: 0, letterSpacing: '0.5em' }}
+            animate={{ opacity: 1, letterSpacing: '0.18em' }}
+            transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1] }}>
+            JAWAHAR NAIDU
+          </motion.span>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
 
@@ -244,12 +435,12 @@ function Nav() {
   }, [])
   const close = () => { setOpen(false); document.body.style.overflow = '' }
   const links = [
-    ['About', '#about'], ['Work', '#work'], ['Case Studies', '#cases'], ['Skills', '#skills'],
+    ['Origin', '#origin'], ['Journey', '#journey'], ['Gallery', '#gallery'], ['Mind', '#mind'], ['Vision', '#vision'],
   ]
   return (
     <motion.nav id="nav" className={stuck ? 'stuck' : ''}
       initial={{ y: -80, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
+      transition={{ duration: 0.8, delay: 1.2, ease: [0.22, 1, 0.36, 1] }}>
       <div className="wrap nav-row">
         <a href="#hero" className="nav-brand" onClick={close}><span className="gem" />Jawahar</a>
         <ul className={`nav-links ${open ? 'open' : ''}`}>
@@ -269,7 +460,10 @@ function Nav() {
   )
 }
 
-function Hero() {
+/* ════════════════════════════ CHAPTERS ════════════════════════════════ */
+
+/* Chapter 1 — Opening Scene */
+function Hero({ mood }) {
   const [roleIdx, setRoleIdx] = useState(0)
   useEffect(() => {
     const t = setInterval(() => setRoleIdx((i) => (i + 1) % ROLES.length), 2600)
@@ -278,6 +472,9 @@ function Hero() {
   const { scrollY } = useScroll()
   const y = useTransform(scrollY, [0, 600], [0, 120])
   const fade = useTransform(scrollY, [0, 400], [1, 0])
+
+  const { greet, Icon: TimeIcon } = MOOD_META[mood.time]
+  const weather = WEATHER_META[mood.weather]
 
   return (
     <section id="hero">
@@ -290,7 +487,7 @@ function Hero() {
             Jawahar <span className="grad">Naidu</span>
           </motion.h1>
           <motion.p className="hero-sub" variants={fadeUp}>
-            I build AI products at the edge of strategy and code.
+            I build where business, AI, and human behavior meet.
           </motion.p>
           <motion.div className="hero-role" variants={fadeUp}>
             <AnimatePresence mode="wait">
@@ -302,7 +499,7 @@ function Hero() {
             </AnimatePresence>
           </motion.div>
           <motion.div className="hero-cta" variants={fadeUp}>
-            <Magnetic><a href="#work" className="btn btn-primary">View Work <ArrowRight size={16} /></a></Magnetic>
+            <Magnetic><a href="#gallery" className="btn btn-primary">Enter the Gallery <ArrowRight size={16} /></a></Magnetic>
             <Magnetic><a href={LINKS.github} target="_blank" rel="noreferrer" className="btn btn-ghost"><Github size={16} /> GitHub</a></Magnetic>
           </motion.div>
           <motion.div className="hero-stats" variants={fadeUp}>
@@ -313,6 +510,10 @@ function Hero() {
               </div>
             ))}
           </motion.div>
+          <motion.div className="hero-mood" variants={fadeUp} aria-live="polite">
+            <TimeIcon size={13} />
+            {greet}{mood.live ? <> · {weather.label} where you are — the glass matches</> : <> · the glass follows your sky</>}
+          </motion.div>
         </motion.div>
       </motion.div>
       <motion.div className="scroll-cue" style={{ opacity: fade }}>
@@ -322,12 +523,37 @@ function Hero() {
   )
 }
 
-function About() {
+/* Chapter 2 — The Origin */
+function Origin() {
   return (
-    <section id="about">
+    <section id="origin">
       <div className="wrap">
         <Reveal className="sec-head">
-          <div className="sec-kicker"><span className="dot" /> The Journey</div>
+          <Chapter n="02" title="The Origin" />
+          <h2 className="sec-title">Before the code, there was <em>land</em>.</h2>
+        </Reveal>
+        <div className="origin-grid">
+          <Reveal className="origin-quote">
+            “Every project began with a question I could not ignore.”
+          </Reveal>
+          <Reveal className="origin-body" delay={0.1}>
+            <p>I grew up in <strong>Anantapur</strong>, in a family that builds — construction and real estate. Dinner-table conversations were about land, deals, people, and timing. I learned early that property is never about buildings; it's about trust, capital, and reading what people actually want.</p>
+            <p>Then computers arrived, and I found a second kind of building. One where the materials were free and the only constraint was how clearly you could think. I went to <strong>Bengaluru</strong> to study computer science and never stopped switching between the two worlds — atoms and bits, deals and systems.</p>
+            <p>That double lens is still how I work. <strong>Rta Living</strong> exists because I see homes the way my family does and software the way an engineer does.</p>
+          </Reveal>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* Chapter 3 — The Transformation */
+function Journey() {
+  return (
+    <section id="journey">
+      <div className="wrap">
+        <Reveal className="sec-head">
+          <Chapter n="03" title="The Transformation" />
           <h2 className="sec-title">Engineer who learned <em>strategy</em>. Strategist who still ships code.</h2>
         </Reveal>
 
@@ -351,7 +577,7 @@ function About() {
             “The rarest lever in any org: the engineer who understands markets, and the strategist who understands systems.”
           </Reveal>
           <Reveal className="about-body" delay={0.1}>
-            <p>I grew up in two worlds at once — the precision of computer science and the ambiguity of markets. At <strong>REVA</strong> I learned every hard problem has an elegant structure underneath. At <strong>ESSEC</strong> I learned that structure is useless without human context and strategic will.</p>
+            <p>At <strong>REVA</strong> I learned every hard problem has an elegant structure underneath. At <strong>ESSEC</strong> I learned that structure is useless without human context and strategic will.</p>
             <p>My real education happened in the gap between them: running 30+ client digital transformations at <strong>PandaECE</strong>, where data analysis and stakeholder communication had to live in the same room, on the same deadline.</p>
             <p>Today I build AI products — like <strong>WebForge</strong> and <strong>Rta Living</strong> — that turn that gap into a product advantage. Available for a 12-month apprenticeship from <strong>September 2026</strong>, based in Paris. English C1, learning French.</p>
           </Reveal>
@@ -394,12 +620,13 @@ function PipelineVisual() {
   )
 }
 
-function Work() {
+/* Chapter 4 — The Builder's Gallery */
+function Gallery() {
   return (
-    <section id="work">
+    <section id="gallery">
       <div className="wrap">
         <Reveal className="sec-head">
-          <div className="sec-kicker"><span className="dot" /> Selected Work</div>
+          <Chapter n="04" title="The Builder's Gallery" />
           <h2 className="sec-title">Things I've <em>shipped</em> — not slides about shipping.</h2>
         </Reveal>
 
@@ -458,38 +685,73 @@ function Work() {
               )
             })}
           </motion.div>
+
+          {/* STRATEGY ARTIFACTS */}
+          <Reveal className="gallery-divider">
+            <span>Strategy artifacts — graded at distinction</span>
+          </Reveal>
+          <motion.div className="case-list" variants={container} initial="hidden"
+            whileInView="show" viewport={{ once: true, amount: 0.1 }}>
+            {CASES.map((c) => (
+              <motion.div key={c.num} variants={fadeUp}>
+                <LiquidCard className="glass case" tilt={false}>
+                  <div className="case-num">{c.num}</div>
+                  <div>
+                    <div className="case-cat">{c.cat}</div>
+                    <h3 className="case-title">{c.title}</h3>
+                    <p className="case-desc">{c.desc}</p>
+                  </div>
+                  <div className="case-tags">
+                    {c.tags.map((t) => <span key={t} className="pill">{t}</span>)}
+                  </div>
+                </LiquidCard>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </div>
     </section>
   )
 }
 
-function Cases() {
+/* Chapter 5 — The AI Business Mind */
+function Mind() {
   return (
-    <section id="cases">
+    <section id="mind">
       <div className="wrap">
         <Reveal className="sec-head">
-          <div className="sec-kicker"><span className="dot" /> Strategy Work</div>
-          <h2 className="sec-title">ESSEC case studies, graded at <em>distinction</em>.</h2>
+          <Chapter n="05" title="The AI Business Mind" />
+          <h2 className="sec-title">An operating system with <em>eight</em> processes.</h2>
         </Reveal>
-        <motion.div className="case-list" variants={container} initial="hidden"
-          whileInView="show" viewport={{ once: true, amount: 0.1 }}>
-          {CASES.map((c) => (
-            <motion.div key={c.num} variants={fadeUp}>
-              <LiquidCard className="glass case" tilt={false}>
-                <div className="case-num">{c.num}</div>
-                <div>
-                  <div className="case-cat">{c.cat}</div>
-                  <h3 className="case-title">{c.title}</h3>
-                  <p className="case-desc">{c.desc}</p>
-                </div>
-                <div className="case-tags">
-                  {c.tags.map((t) => <span key={t} className="pill">{t}</span>)}
-                </div>
-              </LiquidCard>
-            </motion.div>
-          ))}
+
+        <motion.div className="mind-grid" variants={container} initial="hidden"
+          whileInView="show" viewport={{ once: true, amount: 0.12 }}>
+          {MIND.map((m) => {
+            const Icon = m.icon
+            return (
+              <motion.div key={m.name} className="lg-item" variants={fadeUp}>
+                <LiquidCard className="glass mind-tile">
+                  <Magnetic strength={0.18}>
+                    <span className="mind-icon"><Icon size={19} /></span>
+                  </Magnetic>
+                  <div className="mind-name">{m.name}</div>
+                  <p className="mind-line">{m.line}</p>
+                </LiquidCard>
+              </motion.div>
+            )
+          })}
         </motion.div>
+
+        <div className="skill-grid">
+          <Reveal>
+            <div className="skill-col-head">Engineering & Data</div>
+            {SKILLS_ENG.map((s) => <SkillBar key={s.name} s={s} />)}
+          </Reveal>
+          <Reveal delay={0.1}>
+            <div className="skill-col-head">Strategy & Business</div>
+            {SKILLS_BIZ.map((s) => <SkillBar key={s.name} s={s} />)}
+          </Reveal>
+        </div>
       </div>
     </section>
   )
@@ -512,30 +774,27 @@ function SkillBar({ s }) {
   )
 }
 
-function Skills() {
+/* Chapter 6 — The Future Vision */
+function Vision() {
   return (
-    <section id="skills">
+    <section id="vision">
       <div className="wrap">
-        <Reveal className="sec-head">
-          <div className="sec-kicker"><span className="dot" /> Expertise</div>
-          <h2 className="sec-title">Two stacks, <em>one</em> operator.</h2>
+        <Reveal className="sec-head" >
+          <Chapter n="06" title="The Future Vision" />
         </Reveal>
-        <div className="skill-grid">
-          <Reveal>
-            <div className="skill-col-head">Engineering & Data</div>
-            {SKILLS_ENG.map((s) => <SkillBar key={s.name} s={s} />)}
-          </Reveal>
-          <Reveal delay={0.1}>
-            <div className="skill-col-head">Strategy & Business</div>
-            {SKILLS_BIZ.map((s) => <SkillBar key={s.name} s={s} />)}
-          </Reveal>
-        </div>
+        <Reveal className="vision-statement">
+          <p>I'm going to build AI-powered businesses that connect <em>people, capital, technology, and opportunity</em> — starting where I'm from, reaching wherever the problem matters.</p>
+        </Reveal>
+        <Reveal className="vision-sub" delay={0.15}>
+          <p>One venture is already in motion — in stealth, with a cofounder, on the ground. Ask me about it in person.</p>
+        </Reveal>
       </div>
     </section>
   )
 }
 
-function Contact() {
+/* Chapter 7 — The Invitation */
+function Invitation() {
   const [status, setStatus] = useState({ msg: '', ok: false, show: false })
   const [sending, setSending] = useState(false)
 
@@ -571,9 +830,12 @@ function Contact() {
   return (
     <section id="contact">
       <div className="wrap">
+        <Reveal className="sec-head">
+          <Chapter n="07" title="The Invitation" />
+        </Reveal>
         <Reveal className="lg-item">
           <LiquidCard className="glass contact-card" tilt={false}>
-          <h2 className="contact-h">Let's build something <em>worth building</em>.</h2>
+          <h2 className="contact-h">The next chapter has <em>room in it</em>.</h2>
           <p className="contact-sub">
             Apprenticeship enquiries, Rta Living collaboration, or a conversation about something worth doing — I'm ready to engage seriously.
           </p>
@@ -636,11 +898,11 @@ function Footer() {
     <footer>
       <div className="wrap footer-row">
         <span className="footer-brand">Jawahar Naidu</span>
-        <span className="footer-copy">© 2026 · Built from scratch with React & Framer Motion</span>
+        <span className="footer-copy">© 2026 · A living glass world — React, Framer Motion & the weather outside</span>
         <ul className="footer-links">
-          <li><a href="#about">About</a></li>
-          <li><a href="#work">Work</a></li>
-          <li><a href="#cases">Cases</a></li>
+          <li><a href="#origin">Origin</a></li>
+          <li><a href="#gallery">Gallery</a></li>
+          <li><a href="#vision">Vision</a></li>
           <li><a href="#contact">Contact</a></li>
           <li><a href={LINKS.github} target="_blank" rel="noreferrer">GitHub</a></li>
         </ul>
@@ -650,17 +912,22 @@ function Footer() {
 }
 
 export default function App() {
+  const mood = useMood()
   return (
     <>
+      <Curtain />
       <Aurora />
+      <Atmosphere mood={mood} />
+      <ScrollProgress />
       <Nav />
       <main>
-        <Hero />
-        <About />
-        <Work />
-        <Cases />
-        <Skills />
-        <Contact />
+        <Hero mood={mood} />
+        <Origin />
+        <Journey />
+        <Gallery />
+        <Mind />
+        <Vision />
+        <Invitation />
       </main>
       <Footer />
     </>
