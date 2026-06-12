@@ -219,6 +219,28 @@ function ScrollProgress() {
   return <motion.div className="scroll-progress" style={{ scaleX }} aria-hidden />
 }
 
+/* marigold ring that walks the gallery with the visitor (desktop only) */
+function GalleryCursor() {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (window.matchMedia('(pointer: coarse)').matches) return
+    const el = ref.current
+    let raf, x = -100, y = -100
+    const onMove = (e) => {
+      x = e.clientX; y = e.clientY
+      if (!raf) raf = requestAnimationFrame(() => {
+        el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`
+        raf = null
+      })
+      const hot = e.target.closest('a, button, .frame')
+      el.classList.toggle('hot', !!hot)
+    }
+    window.addEventListener('mousemove', onMove, { passive: true })
+    return () => { window.removeEventListener('mousemove', onMove); if (raf) cancelAnimationFrame(raf) }
+  }, [])
+  return <div ref={ref} className="gallery-cursor" aria-hidden />
+}
+
 function Nav() {
   const [stuck, setStuck] = useState(false)
   const [open, setOpen] = useState(false)
@@ -643,6 +665,7 @@ function Footer() {
 export default function App() {
   return (
     <>
+      <GalleryCursor />
       <ScrollProgress />
       <Nav />
       <main>
