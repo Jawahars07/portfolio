@@ -145,27 +145,50 @@ function ArtWebForge() {
 
 /* Rta Living — the vastu mandala as circuit: ancient grid, modern pulse */
 function ArtRta() {
-  const cells = []
-  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++)
-    cells.push({ x: 130 + c * 48, y: 56 + r * 48, i: r * 3 + c })
+  const rings = [22, 38, 54]
+  const sensors = [[140, 141], [260, 141], [140, 190], [260, 190]]
+  const spinAt = { transformBox: 'fill-box', transformOrigin: 'center' }
   return (
     <svg viewBox="0 0 400 280" className="art" aria-label="Rta Living artwork">
-      {cells.map(({ x, y, i }) => (
-        <motion.rect key={i} x={x} y={y} width="44" height="44" rx={i === 4 ? 22 : 4}
-          fill={i === 4 ? 'var(--marigold)' : 'none'}
-          stroke="var(--ink)" strokeWidth="2.2"
-          initial={{ opacity: 0, scale: 0.6 }} whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ delay: 0.08 * i, type: 'spring', stiffness: 200, damping: 14 }} />
+      <defs>
+        <clipPath id="rta-house"><rect x="118" y="118" width="164" height="94" rx="9" /></clipPath>
+      </defs>
+      {/* the sensing field — concentric pulses radiating from the hub, contained by the walls */}
+      <g clipPath="url(#rta-house)">
+        {rings.map((r, i) => (
+          <motion.circle key={`r${i}`} cx="200" cy="165" r={r} fill="none"
+            stroke="var(--coral)" strokeWidth={i === 2 ? 1.6 : 1.8} strokeDasharray="2 7"
+            initial={{ scale: 0, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: i === 2 ? 0.7 : 1 }}
+            viewport={{ once: true, amount: 0.5 }}
+            transition={{ delay: 0.55 + i * 0.18, duration: 0.75, ease: EASE }}
+            style={spinAt} />
+        ))}
+        {/* faint vastu cardinal axes — the dwelling, oriented */}
+        <motion.line x1="118" y1="165" x2="282" y2="165" stroke="var(--ink-faint)" strokeWidth="1" strokeDasharray="1 6"
+          initial={{ pathLength: 0, opacity: 0 }} whileInView={{ pathLength: 1, opacity: 0.5 }}
+          viewport={{ once: true, amount: 0.5 }} transition={{ delay: 0.35, duration: 0.8, ease: 'easeInOut' }} />
+        <motion.line x1="200" y1="118" x2="200" y2="212" stroke="var(--ink-faint)" strokeWidth="1" strokeDasharray="1 6"
+          initial={{ pathLength: 0, opacity: 0 }} whileInView={{ pathLength: 1, opacity: 0.5 }}
+          viewport={{ once: true, amount: 0.5 }} transition={{ delay: 0.45, duration: 0.8, ease: 'easeInOut' }} />
+      </g>
+      {/* the dwelling — body + roof, drawn on view */}
+      <motion.rect x="118" y="118" width="164" height="94" rx="9" fill="none" stroke="var(--ink)" strokeWidth="2.6" {...draw(0.25, 1)} />
+      <motion.path d="M104 124 L200 58 L296 124" fill="none" stroke="var(--ink)" strokeWidth="2.6"
+        strokeLinecap="round" strokeLinejoin="round" {...draw(0.05, 0.9)} />
+      {/* distributed sensors at the four quarters */}
+      {sensors.map(([cx, cy], i) => (
+        <motion.circle key={`s${i}`} cx={cx} cy={cy} r="3.4" fill="var(--coral)"
+          initial={{ scale: 0 }} whileInView={{ scale: 1 }} viewport={{ once: true }}
+          transition={{ delay: 1.3 + i * 0.1, type: 'spring', stiffness: 240, damping: 12 }} style={spinAt} />
       ))}
-      {/* sensor pulses leaving the brahmasthan */}
-      <motion.path d="M152 78 q -60 -25 -105 18" stroke="var(--coral)" strokeWidth="2.2" fill="none" strokeDasharray="3 7" {...draw(0.9, 1.2)} />
-      <motion.path d="M248 78 q 60 -25 105 18" stroke="var(--coral)" strokeWidth="2.2" fill="none" strokeDasharray="3 7" {...draw(1.05, 1.2)} />
-      <motion.path d="M200 200 q 0 40 0 52" stroke="var(--coral)" strokeWidth="2.2" fill="none" strokeDasharray="3 7" {...draw(1.2, 1)} />
-      <motion.circle cx="47" cy="96" r="6" fill="var(--coral)" initial={{ scale: 0 }} whileInView={{ scale: 1 }} viewport={{ once: true }} transition={{ delay: 1.9, type: 'spring' }} />
-      <motion.circle cx="353" cy="96" r="6" fill="var(--coral)" initial={{ scale: 0 }} whileInView={{ scale: 1 }} viewport={{ once: true }} transition={{ delay: 2.0, type: 'spring' }} />
-      <motion.circle cx="200" cy="256" r="6" fill="var(--coral)" initial={{ scale: 0 }} whileInView={{ scale: 1 }} viewport={{ once: true }} transition={{ delay: 2.1, type: 'spring' }} />
-      <text x="138" y="240" className="art-note">the home, sensing</text>
+      {/* the brahmasthan — central sensor hub */}
+      <motion.circle cx="200" cy="165" r="9.5" fill="var(--marigold)" stroke="var(--ink)" strokeWidth="1.6"
+        initial={{ scale: 0 }} whileInView={{ scale: 1 }} viewport={{ once: true }}
+        transition={{ delay: 1.05, type: 'spring', stiffness: 220, damping: 11 }} style={spinAt} />
+      <motion.circle cx="200" cy="165" r="2.6" fill="var(--paper-card)"
+        initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 1.4 }} />
+      <text x="200" y="256" textAnchor="middle" className="art-note">the home, sensing</text>
     </svg>
   )
 }
@@ -193,11 +216,11 @@ function ArtFertilizer() {
   return (
     <svg viewBox="0 0 400 280" className="art" aria-label="Fertilizer AI artwork">
       {[0, 1, 2, 3].map((i) => (
-        <motion.line key={i} x1={60 + i * 8} y1={216 + i * 14} x2={340 - i * 8} y2={216 + i * 14}
+        <motion.line key={i} x1={60 + i * 8} y1={198 + i * 12} x2={340 - i * 8} y2={198 + i * 12}
           stroke={i === 0 ? 'var(--marigold)' : 'var(--ink-soft)'} strokeWidth={4 - i * 0.6} strokeLinecap="round"
           strokeDasharray={i ? '10 8' : 'none'} {...draw(0.1 + i * 0.15, 0.9)} />
       ))}
-      <motion.path d="M200 216 C 200 160, 198 130, 200 96" stroke="var(--ink)" strokeWidth="2.5" fill="none" {...draw(0.7, 0.9)} />
+      <motion.path d="M200 198 C 200 158, 198 128, 200 96" stroke="var(--ink)" strokeWidth="2.5" fill="none" {...draw(0.7, 0.9)} />
       <motion.path d="M200 130 C 165 120, 150 90, 158 62 C 190 70, 202 96, 200 130 Z"
         fill="var(--marigold)" stroke="var(--ink)" strokeWidth="2"
         initial={{ opacity: 0, scale: 0.5 }} whileInView={{ opacity: 1, scale: 1 }}
@@ -206,7 +229,7 @@ function ArtFertilizer() {
         fill="var(--coral)" stroke="var(--ink)" strokeWidth="2"
         initial={{ opacity: 0, scale: 0.5 }} whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true }} transition={{ delay: 1.6, type: 'spring', stiffness: 120 }} style={{ transformOrigin: '200px 110px' }} />
-      <text x="138" y="262" className="art-note">the soil decides, the model listens</text>
+      <text x="200" y="270" textAnchor="middle" className="art-note">the soil decides, the model listens</text>
     </svg>
   )
 }
@@ -217,28 +240,6 @@ function ScrollProgress() {
   const { scrollYProgress } = useScroll()
   const scaleX = useSpring(scrollYProgress, { stiffness: 120, damping: 26, mass: 0.4 })
   return <motion.div className="scroll-progress" style={{ scaleX }} aria-hidden />
-}
-
-/* marigold ring that walks the gallery with the visitor (desktop only) */
-function GalleryCursor() {
-  const ref = useRef(null)
-  useEffect(() => {
-    if (window.matchMedia('(pointer: coarse)').matches) return
-    const el = ref.current
-    let raf, x = -100, y = -100
-    const onMove = (e) => {
-      x = e.clientX; y = e.clientY
-      if (!raf) raf = requestAnimationFrame(() => {
-        el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`
-        raf = null
-      })
-      const hot = e.target.closest('a, button, .frame')
-      el.classList.toggle('hot', !!hot)
-    }
-    window.addEventListener('mousemove', onMove, { passive: true })
-    return () => { window.removeEventListener('mousemove', onMove); if (raf) cancelAnimationFrame(raf) }
-  }, [])
-  return <div ref={ref} className="gallery-cursor" aria-hidden />
 }
 
 function Nav() {
@@ -256,7 +257,7 @@ function Nav() {
   return (
     <nav id="nav" className={stuck ? 'stuck' : ''}>
       <div className="wrap nav-row">
-        <a href="#entrance" className="nav-brand" onClick={close}>జ<span>awahar</span></a>
+        <a href="#entrance" className="nav-brand" onClick={close}>J<span>awahar</span></a>
         <ul className={`nav-links ${open ? 'open' : ''}`}>
           {links.map(([label, href]) => (
             <li key={href}><a href={href} onClick={close}>{label}</a></li>
@@ -344,7 +345,10 @@ function Origin() {
         <div className="origin-grid">
           <Reveal>
             <h2 className="room-title">before the code,<br />there was <em>land</em>.</h2>
-            <div className="glyph-wall" aria-hidden>జ వ హ ర్</div>
+            <div className="origin-mark" aria-hidden>
+              <span className="origin-mark-rule" />
+              <span className="origin-mark-text">atoms &amp; bits</span>
+            </div>
           </Reveal>
           <Reveal delay={0.15} className="origin-body">
             <p>I grew up in <strong>Anantapur</strong>, in a family that builds — construction and real estate. dinner-table talk was land, deals, people, timing. I learned early that property is never about buildings; it's about trust, capital, and reading what people actually want.</p>
@@ -517,14 +521,14 @@ function Exhibits() {
 
 /* Room III — The Mind */
 const MIND = [
-  { tel: 'జ', name: 'AI', line: 'right model for the job. cache what repeats. ship the pipeline, not the demo.' },
-  { tel: 'వ', name: 'strategy', line: 'moats, pricing power, where the market is actually going — not where the deck says.' },
-  { tel: 'హ', name: 'product', line: 'useful, beautiful, commercially sharp. in that order. all three required.' },
-  { tel: 'ర', name: 'finance', line: 'every idea survives or dies in the unit economics. I build the model first.' },
-  { tel: 'భ', name: 'real estate', line: 'I grew up around property. land, capital and timing are in my blood.' },
-  { tel: 'మ', name: 'marketing', line: 'distribution is half the product. the best build loses to the best story.' },
-  { tel: 'క', name: 'story', line: 'people decide on narrative and justify with numbers. I write for the decision.' },
-  { tel: 'శ', name: 'execution', line: 'a shipped imperfect thing beats a perfect plan. iterate in public.' },
+  { mark: '01', name: 'AI', line: 'right model for the job. cache what repeats. ship the pipeline, not the demo.' },
+  { mark: '02', name: 'strategy', line: 'moats, pricing power, where the market is actually going — not where the deck says.' },
+  { mark: '03', name: 'product', line: 'useful, beautiful, commercially sharp. in that order. all three required.' },
+  { mark: '04', name: 'finance', line: 'every idea survives or dies in the unit economics. I build the model first.' },
+  { mark: '05', name: 'real estate', line: 'I grew up around property. land, capital and timing are in my blood.' },
+  { mark: '06', name: 'marketing', line: 'distribution is half the product. the best build loses to the best story.' },
+  { mark: '07', name: 'story', line: 'people decide on narrative and justify with numbers. I write for the decision.' },
+  { mark: '08', name: 'execution', line: 'a shipped imperfect thing beats a perfect plan. iterate in public.' },
 ]
 
 function Mind() {
@@ -538,7 +542,7 @@ function Mind() {
             <Reveal key={m.name} delay={(i % 4) * 0.08}>
               <Frame rotate={i % 2 ? 0.9 : -0.9} className="mind-frame">
                 <div className="mind-tile">
-                  <span className="mind-glyph" aria-hidden>{m.tel}</span>
+                  <span className="mind-glyph" aria-hidden>{m.mark}</span>
                   <div className="mind-name">{m.name}</div>
                   <p className="mind-line">{m.line}</p>
                 </div>
@@ -649,7 +653,7 @@ function Footer() {
   return (
     <footer>
       <div className="wrap footer-row">
-        <span className="footer-brand">జవహర్ — Jawahar Naidu</span>
+        <span className="footer-brand">Jawahar Naidu</span>
         <span className="footer-copy">© 2026 · built by hand in paris · react + framer motion</span>
         <ul className="footer-links">
           <li><a href="#origin">origin</a></li>
@@ -665,12 +669,11 @@ function Footer() {
 export default function App() {
   return (
     <>
-      <GalleryCursor />
       <ScrollProgress />
       <Nav />
       <main>
         <Entrance />
-        <Marquee items={['builder', 'strategist', 'founder', 'జవహర్', 'paris', 'anantapur']} />
+        <Marquee items={['builder', 'strategist', 'founder', 'paris', 'anantapur', 'bengaluru']} />
         <Origin />
         <Formation />
         <Marquee items={['EX·01 webforge', 'EX·02 rta living', 'EX·03 tara', 'EX·04 fertilizer ai', 'the archive']} />
